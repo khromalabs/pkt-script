@@ -1,0 +1,284 @@
+#!/usr/local/bin/bash
+
+# pkt - Package-management Kommon inTerface - 2009-2010 (c) Ruben "Khroma" Gomez
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Library General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor Boston, MA 02110-1301, USA
+
+
+# CONFIGURATION ---------------------------------------------------
+
+# FreeBSD 
+# Configuration required by pkg_add -rK to store the packets, then to find'em
+# with a local pkg_add, and with portupgrade and portinstall
+# The suggested vars (PKGDIR and PKG_PATH) defined permanenly in .
+# bash_profile resulted in some errors, ports didn't compile (blame PKGDIR)
+# and pkg_info didn't list packages (blame PKG_PATH), so I defined the
+# directory here and activate the corresponding var 
+# just on the appropiate command via "env"
+FREEBSD_PACKAGES=/usr/ports/packages
+
+# END CONFIGURATION ------------------------------------------------
+
+VERSION="1.1.1"
+
+# Lang
+if [[ "$LANG" =~ es(.*) ]]
+then
+    # Spanish messages
+    ERROR_BAD_PARAM="Uso: pkt {accion} [{paquete}]"
+    ERROR_NOTE="Nota:\tPor favor lea los comentarios en el script para una descripcion\n\tmas detallada del comporamiento de cada accion\n"
+    ERROR_BAD_OS="No se detectó un sistema operativo soportado"
+    ERROR_MISSING_TOOL="Falta herramienta requerida"
+    ERROR_BAD_PARAM_COUNT="Número de elementos incorrecto en array(s)"
+    ACTIONS_LEGEND=(
+    "[d]elete: Borrado suave paquete"
+    "[D]elete: Borrado duro paquete"
+    "[f]iles: Filtrar por grep ficheros buscados en un paquete"
+    "[p]acket: Buscar referencia de paquete entre instalados"
+    "[s]earch: Buscar un paquete en el repositorio"
+    "[i]nstall: Instalar paquete (ligero)"
+    "[I]nstall: Instalar paquete (completo)"
+    "[u]grade: Actualizar instalacion paquete o sistema"
+    "[U]date: Actualizar descripcion repositorios/ports en sistema"
+    "[v]iew: Ver info de un paquete"
+    "[V]iew: Ver info de todos los paquetes instalados")
+else
+    # English messages
+    ERROR_BAD_PARAM="Use: pkt {action} [{packet}]"
+    ERROR_NOTE="Note:\tPlease see the actions' comments inside the script for\n\ta full explanation of the behaviour\n"
+    ERROR_BAD_OS="Can't detect a supported OS"
+    ERROR_MISSING_TOOL="Missing tool: "
+    ERROR_BAD_PARAM_COUNT="Bad elements count in array(s)"
+    ACTIONS_LEGEND=(
+    "[d]elete: soft packet delete"
+    "[D]elete: hard packet delete"
+    "[f]iles: Grep files in packet"
+    "[p]acket: search reference in packets"
+    "[s]earch: search a packet in the repository"
+    "[i]nstall: install a packet (light)"
+    "[I]nstall: install a packet (full)"
+    "[u]grade: upgrade system o packet installation"
+    "[U]date: update description of repositories/ports"
+    "[v]iew: view packet info"
+    "[V]iew: view all installed packets info")
+fi
+
+
+# Data
+OSS=( "Ubuntu" "FreeBSD" "ARCH" )
+REQUIRED_TOOLS_ARCH=("pacman" "yaourt")
+REQUIRED_TOOLS_UBUNTU=("sudo" "aptitude" "dpkg" "apt-cache" "apt-get")
+REQUIRED_TOOLS_FREEBSD=(
+  "sudo" "pkg_delete" "pkg_info" "pkg_add" "portupgrade" "portsnap"
+  "pkg_version" "portinstall")
+ACTION="$1"
+shift
+COMMANDS=(d D f p s i I u U v V)
+REQUIRED_PARAMETERS=(2 1 2 2 2 2 2 1 1 2 1)
+ACTIONS_UBUNTU=(
+# This removes the packet and the user decides if the dependencies should be removed
+# too. The configuration files aren't touched
+"sudo aptitude remove $*"
+# This removes both the package files and the configuration files
+"sudo aptitude purge ~c $*"
+# List files inside a package
+"dpkg -L $*"
+# Search if a package is installed (by name)
+"dpkg -l | grep $1"
+# Search for packag name or key inside repositories
+"apt-cache search $*"
+# Light install, no recommends
+"sudo apt-get install --no-install-recommends $*"
+# Full install with recommends
+"sudo aptitude install $*"
+# Upgrade one or more packages
+"sudo aptitude safe-upgrade"
+# Update repositories information 
+"sudo aptitude update"
+# Show information about a package
+"aptitude show $*"
+# Show the list of all installed packages and versions
+"dpkg -l"
+)
+ACTIONS_FREEBSD=(
+# Soft delete of a packet, no dependencies are deleted
+"sudo pkg_delete $*"
+# Hard delete of a packet, dependencies deleted
+"sudo pkg_delete -r $*"
+# List files inside a packet
+"pkg_info -L $1*"
+# Search for a installed packet by name
+"pkg_info | grep $1"
+# Search inside the ports tree for a package name
+"pushd . >/dev/null && cd /usr/ports/ && make search name=\"$*\" && popd >/dev/null"
+# Try to locally install a binary package, if not import, install, and store it
+# This should run faster, but pkg_add doesn't recognize local prefixs of packets
+# At this moment portinstall installs build-depends with run-depends, which is not
+# neccesary for this. Hope this is fixed soon 
+#"env PKGDIR=$FREEBSD_PACKAGES sudo pkg_add -F $* || sudo pkg_add -rK $*"
+"env PACKAGES=$FREEBSD_PACKAGES sudo portinstall -PP $*"
+# Upgrade the package(s) and dependencies to the last version available on ports, config
+# first
+"env PACKAGES=$FREEBSD_PACKAGES sudo portinstall -PRDc $*"
+# Upgrade ALL package(s) and dependencies to the last version available on ports, config
+# first
+"env PACKAGES=$FREEBSD_PACKAGES sudo portupgrade -PRDc "
+# Update ports to the last version
+"sudo portsnap fetch && sudo portsnap update"
+# Show full info about a package
+"pkg_info -d -R -r -D $1*"
+# Show the list of all installed packages and versions, and port equivalence
+"pkg_version -v"
+)
+
+ACTIONS_ARCH=(
+# d
+"sudo pacman -Rs $*"
+# D
+"sudo pacman -Rssn $*"
+# f
+"sudo pacman -Qql $1"
+# p
+"sudo pacman -Qs $1"
+# s
+"yaourt -Ss $*"
+# i
+"sudo pacman --needed -S $*"
+# I
+"yaourt -S $*"
+# u
+"sudo pacman -Su"
+# U
+"sudo pacman -Sy"
+# v
+"sudo pacman -Qii $*"
+# V
+"sudo pacman -Q"
+)
+
+# Special behaviour update FreeBSD
+if [ "$1" = "" ]; then
+    ACTIONS_FREEBSD[7]=${ACTIONS_FREEBSD[7]}"-a"
+else
+    ACTIONS_FREEBSD[7]=${ACTIONS_FREEBSD[7]}"$*"
+fi
+
+# Check arrays lengths
+LEN1=${#COMMANDS[@]}
+LEN2=${#REQUIRED_PARAMETERS[@]}
+LEN3=${#ACTIONS_LEGEND[@]}
+LEN4=${#ACTIONS_UBUNTU[@]}
+LEN5=${#ACTIONS_FREEBSD[@]}
+if [ $LEN1 -ne $LEN2 -o $LEN1 -ne $LEN3 -o $LEN1 -ne $LEN4 -o $LEN1 -ne $LEN5  ]; then
+     echo $ERROR_BAD_PARAM_COUNT
+     echo -e "COMMANDS = $LEN1\nREQUIRED_PARAMETERS = $LEN2\nACTIONS_LEGEND = $LEN3\nACTIONS_UBUNTU = $LEN4\nACTIONS_FREEBSD = $LEN5"
+     exit
+fi
+
+# Say hello
+echo "Package-management Kommon inTerface - v.${VERSION} 2010 (c) Ruben \"Khroma\" Gomez"
+
+# Build actions info message
+LEN=${#ACTIONS_LEGEND[@]}
+INFO_ACTIONS="Acciones:"
+for (( i = 0; i<${LEN}; i++ ));
+do
+    INFO_ACTIONS="$INFO_ACTIONS \n  ${COMMANDS[i]} = ${ACTIONS_LEGEND[i]}"
+done
+INFO_ACTIONS="$INFO_ACTIONS\n"
+
+# Evaluate parameters
+if [ "$ACTION" = "" ]; then
+    echo $ERROR_BAD_PARAM
+    # echo "ACTION: $ACTION"
+    echo -e $INFO_ACTIONS
+    echo -e $ERROR_NOTE
+    exit
+fi
+
+# Detect OS
+MY_OS=0
+LEN=${#OSS[@]}
+for (( i = 0; i<${LEN}; i++ ));
+do
+    IS_OS=`uname -a | grep ${OSS[i]} | wc -l`
+    if [ $IS_OS = "1" ]; then
+        MY_OS="${OSS[i]}"
+    fi
+done
+if [ $MY_OS = "0" ]; then
+    echo "$ERROR_BAD_OS"
+    exit
+fi
+
+# Detect action
+CMD_I=""
+LEN=${#COMMANDS[@]}
+for (( i = 0; i<${LEN}; i++ ));
+do
+    if [ $ACTION = "${COMMANDS[i]}" ]; then
+        CMD_I=$i
+    fi
+done
+if [ "$CMD_I" = "" ]; then
+    echo $ERROR_BAD_PARAM
+    echo -e $INFO_ACTIONS    
+    exit
+fi
+if [ "${REQUIRED_PARAMETERS[CMD_I]}" = "2" -a "$1" = "" ]; then
+    echo $ERROR_BAD_PARAM
+    echo -e $INFO_ACTIONS    
+    exit
+fi
+
+# Validate tools availability
+if [ $MY_OS = "Ubuntu" ]; then
+    LEN=${#REQUIRED_TOOLS_UBUNTU[@]}
+    for (( i = 0; i<${LEN}; i++ ));
+    do
+        if ! which ${REQUIRED_TOOLS_UBUNTU[i]} > /dev/null; then
+            echo "$ERROR_MISSING_TOOL ${REQUIRED_TOOLS_UBUNTU[i]}";
+            exit
+        fi
+    done
+    ACTION="${ACTIONS_UBUNTU[CMD_I]}"
+elif [ $MY_OS = "FreeBSD" ]; then
+    LEN=${#REQUIRED_TOOLS_FREEBSD[@]}
+    for (( i = 0; i<${LEN}; i++ ));
+    do
+        if ! which ${REQUIRED_TOOLS_FREEBSD[i]} > /dev/null; then
+            echo "$ERROR_MISSING_TOOL ${REQUIRED_TOOLS_FREEBSD[i]}";
+            exit
+        fi
+    done
+    ACTION="${ACTIONS_FREEBSD[CMD_I]}"
+elif [ $MY_OS = "ARCH" ]; then
+    LEN=${#REQUIRED_TOOLS_ARCH[@]}
+    for (( i = 0; i<${LEN}; i++ ));
+    do
+        if ! which ${REQUIRED_TOOLS_ARCH[i]} > /dev/null; then
+            echo "$ERROR_MISSING_TOOL ${REQUIRED_TOOLS_ARCH[i]}";
+            exit
+        fi
+    done
+    ACTION="${ACTIONS_ARCH[CMD_I]}"
+else 
+    echo "$ERROR_BAD_OS (2)"
+    exit
+fi
+
+# Execute the action
+echo -e "## OS:'$MY_OS'\n## ACTION:'${ACTIONS_LEGEND[CMD_I]}'\n## EXECUTING: '$ACTION'\n"
+eval "$ACTION"
