@@ -32,7 +32,7 @@ FREEBSD_PACKAGES=/usr/ports/packages
 # END CONFIGURATION ------------------------------------------------
 
 # v.1.2 Added Amazon Linux compatibility
-VERSION="1.2"
+VERSION="1.2.1"
 
 # Lang
 if [[ "$LANG" =~ es(.*) ]]
@@ -90,7 +90,7 @@ REQUIRED_TOOLS_AMZN=("yum" "rpm" )
 ACTION="$1"
 shift
 COMMANDS=(d D f p s S i I u U v V)
-REQUIRED_PARAMETERS=(2 1 2 2 2 2 2 1 1 2 1 2)
+REQUIRED_PARAMETERS=(2 1 2 1 2 2 2 1 1 2 1 2)
 
 # Diferent actions commands per SO, refer to help message to know meaning
 ACTIONS_UBUNTU=(
