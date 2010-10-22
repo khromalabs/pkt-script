@@ -31,7 +31,8 @@ FREEBSD_PACKAGES=/usr/ports/packages
 
 # END CONFIGURATION ------------------------------------------------
 
-VERSION="1.1.1"
+# v.1.2 Added Amazon Linux compatibility
+VERSION="1.2"
 
 # Lang
 if [[ "$LANG" =~ es(.*) ]]
@@ -48,6 +49,7 @@ then
     "[f]iles: Filtrar por grep ficheros buscados en un paquete"
     "[p]acket: Buscar referencia de paquete entre instalados"
     "[s]earch: Buscar un paquete en el repositorio"
+    "[S]earch: Buscar un paquete en el repositorio (todos)"
     "[i]nstall: Instalar paquete (ligero)"
     "[I]nstall: Instalar paquete (completo)"
     "[u]grade: Actualizar instalacion paquete o sistema"
@@ -67,6 +69,7 @@ else
     "[f]iles: Grep files in packet"
     "[p]acket: search reference in packets"
     "[s]earch: search a packet in the repository"
+    "[S]earch: search a packet in the repository (all)"
     "[i]nstall: install a packet (light)"
     "[I]nstall: install a packet (full)"
     "[u]grade: upgrade system o packet installation"
@@ -77,69 +80,72 @@ fi
 
 
 # Data
-OSS=( "Ubuntu" "FreeBSD" "ARCH" )
+OSS=( "Ubuntu" "FreeBSD" "ARCH" "amzn")
 REQUIRED_TOOLS_ARCH=("pacman" "yaourt")
 REQUIRED_TOOLS_UBUNTU=("sudo" "aptitude" "dpkg" "apt-cache" "apt-get")
 REQUIRED_TOOLS_FREEBSD=(
   "sudo" "pkg_delete" "pkg_info" "pkg_add" "portupgrade" "portsnap"
   "pkg_version" "portinstall")
+REQUIRED_TOOLS_AMZN=("yum" "rpm" )
 ACTION="$1"
 shift
-COMMANDS=(d D f p s i I u U v V)
-REQUIRED_PARAMETERS=(2 1 2 2 2 2 2 1 1 2 1)
+COMMANDS=(d D f p s S i I u U v V)
+REQUIRED_PARAMETERS=(2 1 2 2 2 2 2 1 1 2 1 2)
+
+# Diferent actions commands per SO, refer to help message to know meaning
 ACTIONS_UBUNTU=(
-# This removes the packet and the user decides if the dependencies should be removed
-# too. The configuration files aren't touched
+# d
 "sudo aptitude remove $*"
-# This removes both the package files and the configuration files
+# D
 "sudo aptitude purge ~c $*"
-# List files inside a package
+# f
 "dpkg -L $*"
-# Search if a package is installed (by name)
+# p
 "dpkg -l | grep $1"
-# Search for packag name or key inside repositories
+# s
 "apt-cache search $*"
-# Light install, no recommends
+# S
+"apt-cache search $*"
+# i
 "sudo apt-get install --no-install-recommends $*"
-# Full install with recommends
+# I
 "sudo aptitude install $*"
-# Upgrade one or more packages
+# u
 "sudo aptitude safe-upgrade"
-# Update repositories information 
+# U
 "sudo aptitude update"
-# Show information about a package
+# v
 "aptitude show $*"
-# Show the list of all installed packages and versions
+# V
 "dpkg -l"
 )
+
 ACTIONS_FREEBSD=(
-# Soft delete of a packet, no dependencies are deleted
+# d
 "sudo pkg_delete $*"
-# Hard delete of a packet, dependencies deleted
+# D
 "sudo pkg_delete -r $*"
-# List files inside a packet
+# f
 "pkg_info -L $1*"
-# Search for a installed packet by name
+# p
 "pkg_info | grep $1"
-# Search inside the ports tree for a package name
+# s
 "pushd . >/dev/null && cd /usr/ports/ && make search name=\"$*\" && popd >/dev/null"
-# Try to locally install a binary package, if not import, install, and store it
-# This should run faster, but pkg_add doesn't recognize local prefixs of packets
-# At this moment portinstall installs build-depends with run-depends, which is not
-# neccesary for this. Hope this is fixed soon 
+# S
+"pushd . >/dev/null && cd /usr/ports/ && make search name=\"$*\" && popd >/dev/null"
+# i
+# At this moment portinstall installs build-depends with run-depends, fix?
 #"env PKGDIR=$FREEBSD_PACKAGES sudo pkg_add -F $* || sudo pkg_add -rK $*"
 "env PACKAGES=$FREEBSD_PACKAGES sudo portinstall -PP $*"
-# Upgrade the package(s) and dependencies to the last version available on ports, config
-# first
+# I
 "env PACKAGES=$FREEBSD_PACKAGES sudo portinstall -PRDc $*"
-# Upgrade ALL package(s) and dependencies to the last version available on ports, config
-# first
+# u
 "env PACKAGES=$FREEBSD_PACKAGES sudo portupgrade -PRDc "
-# Update ports to the last version
+# U
 "sudo portsnap fetch && sudo portsnap update"
-# Show full info about a package
+# v
 "pkg_info -d -R -r -D $1*"
-# Show the list of all installed packages and versions, and port equivalence
+# V
 "pkg_version -v"
 )
 
@@ -153,6 +159,8 @@ ACTIONS_ARCH=(
 # p
 "sudo pacman -Qs $1"
 # s
+"pacman -Ss $*"
+# S
 "yaourt -Ss $*"
 # i
 "sudo pacman --needed -S $*"
@@ -168,11 +176,38 @@ ACTIONS_ARCH=(
 "sudo pacman -Q"
 )
 
+ACTIONS_AMZN=(
+# d
+"yum remove $*"
+# D
+"yum remove $*"
+# f
+"rpm -q --list $*"
+# p
+"rpm -q -a $*"
+# s
+"yum search $*"
+# S
+"yum search $*"
+# i
+"yum install $*"
+# I
+"yum install $*"
+# u
+"yum update $*"
+# U
+"yum upgrade $*"
+# v
+"yum info $*"
+# V
+"yum list installed"
+)
+
 # Special behaviour update FreeBSD
 if [ "$1" = "" ]; then
-    ACTIONS_FREEBSD[7]=${ACTIONS_FREEBSD[7]}"-a"
+    ACTIONS_FREEBSD[8]=${ACTIONS_FREEBSD[7]}"-a"
 else
-    ACTIONS_FREEBSD[7]=${ACTIONS_FREEBSD[7]}"$*"
+    ACTIONS_FREEBSD[8]=${ACTIONS_FREEBSD[7]}"$*"
 fi
 
 # Check arrays lengths
@@ -181,9 +216,10 @@ LEN2=${#REQUIRED_PARAMETERS[@]}
 LEN3=${#ACTIONS_LEGEND[@]}
 LEN4=${#ACTIONS_UBUNTU[@]}
 LEN5=${#ACTIONS_FREEBSD[@]}
-if [ $LEN1 -ne $LEN2 -o $LEN1 -ne $LEN3 -o $LEN1 -ne $LEN4 -o $LEN1 -ne $LEN5  ]; then
+LEN6=${#ACTIONS_AMZN[@]}
+if [ $LEN1 -ne $LEN2 -o $LEN1 -ne $LEN3 -o $LEN1 -ne $LEN4 -o $LEN1 -ne $LEN5 -o $LEN1 -ne $LEN6  ]; then
      echo $ERROR_BAD_PARAM_COUNT
-     echo -e "COMMANDS = $LEN1\nREQUIRED_PARAMETERS = $LEN2\nACTIONS_LEGEND = $LEN3\nACTIONS_UBUNTU = $LEN4\nACTIONS_FREEBSD = $LEN5"
+     echo -e "COMMANDS = $LEN1\nREQUIRED_PARAMETERS = $LEN2\nACTIONS_LEGEND = $LEN3\nACTIONS_UBUNTU = $LEN4\nACTIONS_FREEBSD = $LEN5\nACTIONS_AMZN = $LEN6"
      exit
 fi
 
@@ -274,6 +310,16 @@ elif [ $MY_OS = "ARCH" ]; then
         fi
     done
     ACTION="${ACTIONS_ARCH[CMD_I]}"
+elif [ $MY_OS = "amzn" ]; then
+    LEN=${#REQUIRED_TOOLS_AMZN[@]}
+    for (( i = 0; i<${LEN}; i++ ));
+    do
+        if ! which ${REQUIRED_TOOLS_AMZN[i]} > /dev/null; then
+            echo "$ERROR_MISSING_TOOL ${REQUIRED_TOOLS_AMZN[i]}";
+            exit
+        fi
+    done
+    ACTION="${ACTIONS_AMZN[CMD_I]}"
 else 
     echo "$ERROR_BAD_OS (2)"
     exit
