@@ -32,14 +32,14 @@ FREEBSD_PACKAGES=/usr/ports/packages
 # END CONFIGURATION ------------------------------------------------
 
 # v.1.2 Added Amazon Linux compatibility
-VERSION="1.2.1"
+VERSION="1.2.2"
 
 # Lang
 if [[ "$LANG" =~ es(.*) ]]
 then
     # Spanish messages
     ERROR_BAD_PARAM="Uso: pkt {accion} [{paquete}]"
-    ERROR_NOTE="Nota:\tPor favor lea los comentarios en el script para una descripcion\n\tmas detallada del comporamiento de cada accion\n"
+    ERROR_NOTE=""
     ERROR_BAD_OS="No se detectó un sistema operativo soportado"
     ERROR_MISSING_TOOL="Falta herramienta requerida"
     ERROR_BAD_PARAM_COUNT="Número de elementos incorrecto en array(s)"
@@ -59,7 +59,7 @@ then
 else
     # English messages
     ERROR_BAD_PARAM="Use: pkt {action} [{packet}]"
-    ERROR_NOTE="Note:\tPlease see the actions' comments inside the script for\n\ta full explanation of the behaviour\n"
+    ERROR_NOTE=""
     ERROR_BAD_OS="Can't detect a supported OS"
     ERROR_MISSING_TOOL="Missing tool: "
     ERROR_BAD_PARAM_COUNT="Bad elements count in array(s)"
@@ -89,8 +89,8 @@ REQUIRED_TOOLS_FREEBSD=(
 REQUIRED_TOOLS_AMZN=("yum" "rpm" )
 ACTION="$1"
 shift
-COMMANDS=(d D f p s S i I u U v V)
-REQUIRED_PARAMETERS=(2 1 2 1 2 2 2 1 1 2 1 2)
+	   COMMANDS=(d D f p s S i I u U v V)
+REQUIRED_PARAMETERS=(2 1 2 1 2 2 2 1 1 1 1 2)
 
 # Diferent actions commands per SO, refer to help message to know meaning
 ACTIONS_UBUNTU=(
@@ -155,9 +155,9 @@ ACTIONS_ARCH=(
 # D
 "sudo pacman -Rssn $*"
 # f
-"sudo pacman -Qql $1"
+"pacman -Qql $1"
 # p
-"sudo pacman -Qs $1"
+"pacman -Qs $1"
 # s
 "pacman -Ss $*"
 # S
@@ -171,9 +171,9 @@ ACTIONS_ARCH=(
 # U
 "sudo pacman -Sy"
 # v
-"sudo pacman -Qii $*"
+"pacman -Qii $*"
 # V
-"sudo pacman -Q"
+"pacman -Q"
 )
 
 ACTIONS_AMZN=(
