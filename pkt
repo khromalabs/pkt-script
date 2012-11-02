@@ -113,7 +113,7 @@ ACTIONS_UBUNTU=(
 # u
 "sudo apt-get upgrade"
 # U
-"sudo apt-get update"
+"sudo apt-get update && sudo apt-get upgrade"
 # v
 "apt-cache show $*"
 # V
@@ -169,7 +169,7 @@ ACTIONS_ARCH=(
 # u
 "sudo pacman -Su"
 # U
-"sudo pacman -Sy"
+"sudo pacman -Syu"
 # v
 "pacman -Qii $*"
 # V
