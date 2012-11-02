@@ -1,4 +1,4 @@
-#!/usr/local/bin/bash
+#!/bin/bash
 
 # pkt - Package-management Kommon inTerface - 2009-2010 (c) Ruben "Khroma" Gomez
 
@@ -32,7 +32,7 @@ FREEBSD_PACKAGES=/usr/ports/packages
 # END CONFIGURATION ------------------------------------------------
 
 # v.1.2 Added Amazon Linux compatibility
-VERSION="1.2.2"
+VERSION="1.2.3"
 
 # Lang
 if [[ "$LANG" =~ es(.*) ]]
@@ -57,7 +57,7 @@ then
     "[v]iew: Ver info de un paquete"
     "[V]iew: Ver info de todos los paquetes instalados")
 else
-    # English messages
+   # English messages
     ERROR_BAD_PARAM="Use: pkt {action} [{packet}]"
     ERROR_NOTE=""
     ERROR_BAD_OS="Can't detect a supported OS"
@@ -82,7 +82,7 @@ fi
 # Data
 OSS=( "Ubuntu" "FreeBSD" "ARCH" "amzn")
 REQUIRED_TOOLS_ARCH=("pacman" "yaourt")
-REQUIRED_TOOLS_UBUNTU=("sudo" "aptitude" "dpkg" "apt-cache" "apt-get")
+REQUIRED_TOOLS_UBUNTU=("sudo" "dpkg" "apt-cache" "apt-get")
 REQUIRED_TOOLS_FREEBSD=(
   "sudo" "pkg_delete" "pkg_info" "pkg_add" "portupgrade" "portsnap"
   "pkg_version" "portinstall")
@@ -95,13 +95,13 @@ REQUIRED_PARAMETERS=(2 1 2 1 2 2 2 1 1 1 1 2)
 # Diferent actions commands per SO, refer to help message to know meaning
 ACTIONS_UBUNTU=(
 # d
-"sudo aptitude remove $*"
+"sudo apt-get autoremove $*"
 # D
-"sudo aptitude purge ~c $*"
+"sudo apt-get remove --auto-remove --purge $*"
 # f
 "dpkg -L $*"
 # p
-"dpkg -l | grep $1"
+"dpkg -l | grep $1 | awk '{print \$2}'"
 # s
 "apt-cache search $*"
 # S
@@ -109,13 +109,13 @@ ACTIONS_UBUNTU=(
 # i
 "sudo apt-get install --no-install-recommends $*"
 # I
-"sudo aptitude install $*"
+"sudo apt-get install $*"
 # u
-"sudo aptitude safe-upgrade"
+"sudo apt-get upgrade"
 # U
-"sudo aptitude update"
+"sudo apt-get update"
 # v
-"aptitude show $*"
+"apt-cache show $*"
 # V
 "dpkg -l"
 )
@@ -328,3 +328,4 @@ fi
 # Execute the action
 echo -e "## OS:'$MY_OS'\n## ACTION:'${ACTIONS_LEGEND[CMD_I]}'\n## EXECUTING: '$ACTION'\n"
 eval "$ACTION"
+echo ""
