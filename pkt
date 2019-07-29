@@ -6,12 +6,12 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Library General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor Boston, MA 02110-1301, USA
@@ -19,20 +19,19 @@
 
 # CONFIGURATION ---------------------------------------------------
 
-# FreeBSD 
+# FreeBSD
 # Configuration required by pkg_add -rK to store the packets, then to find'em
 # with a local pkg_add, and with portupgrade and portinstall
 # The suggested vars (PKGDIR and PKG_PATH) defined permanenly in .
 # bash_profile resulted in some errors, ports didn't compile (blame PKGDIR)
 # and pkg_info didn't list packages (blame PKG_PATH), so I defined the
-# directory here and activate the corresponding var 
+# directory here and activate the corresponding var
 # just on the appropiate command via "env"
 FREEBSD_PACKAGES=/usr/ports/packages
 
 # END CONFIGURATION ------------------------------------------------
 
-# v.1.2 Added Amazon Linux compatibility
-VERSION="1.2.3"
+VERSION="1.3.0"
 
 # Lang
 if [[ "$LANG" =~ es(.*) ]]
@@ -80,17 +79,18 @@ fi
 
 
 # Data
-OSS=( "Ubuntu" "FreeBSD" "ARCH" "amzn")
+OSS=( "Ubuntu" "FreeBSD" "ARCH" "MANJARO" "amzn" "gentoo")
 REQUIRED_TOOLS_ARCH=("pacman" "yaourt")
 REQUIRED_TOOLS_UBUNTU=("sudo" "dpkg" "apt-cache" "apt-get")
 REQUIRED_TOOLS_FREEBSD=(
   "sudo" "pkg_delete" "pkg_info" "pkg_add" "portupgrade" "portsnap"
   "pkg_version" "portinstall")
 REQUIRED_TOOLS_AMZN=("yum" "rpm" )
+REQUIRED_TOOLS_GENTOO=("emerge" "equery" "qlist" )
 ACTION="$1"
 shift
-	   COMMANDS=(d D f p s S i I u U v V)
-REQUIRED_PARAMETERS=(2 1 2 1 2 2 2 1 1 1 1 2)
+       COMMANDS=(d D f p s S i I u U v V)
+REQUIRED_PARAMETERS=(2 1 2 1 2 2 2 1 1 1 1 1)
 
 # Diferent actions commands per SO, refer to help message to know meaning
 ACTIONS_UBUNTU=(
@@ -101,7 +101,7 @@ ACTIONS_UBUNTU=(
 # f
 "dpkg -L $*"
 # p
-"dpkg -l | grep $1 | awk '{print \$2}'"
+"dpkg -l | egrep $1 | awk '{print \$2}'"
 # s
 "apt-cache search $*"
 # S
@@ -128,7 +128,7 @@ ACTIONS_FREEBSD=(
 # f
 "pkg_info -L $1*"
 # p
-"pkg_info | grep $1"
+"pkg_info | egrep $1"
 # s
 "pushd . >/dev/null && cd /usr/ports/ && make search name=\"$*\" && popd >/dev/null"
 # S
@@ -148,6 +148,35 @@ ACTIONS_FREEBSD=(
 # V
 "pkg_version -v"
 )
+
+# Nuevas acciones
+#ACTIONS_FREEBSD=(
+## d
+#"pkg delete $*"
+## D
+#"pkg delete -R $*"
+## f
+#"pkg info -l $1*"
+## p
+#"pkg info | grep $1"
+## s
+#"pkg search $*"
+## S
+#"pkg search $*"
+## i
+#"pkg install $*"
+## I
+#"pkg install $*"
+## u
+#"pkg upgrade $*"
+## U
+#"pkg update"
+## v
+#"pkg info -f -d -r $1"
+## V
+#"pkg info"
+#)
+
 
 ACTIONS_ARCH=(
 # d
@@ -176,11 +205,38 @@ ACTIONS_ARCH=(
 "pacman -Q"
 )
 
+ACTIONS_MANJARO=(
+# d
+"sudo pacman -Rs $*"
+# D
+"sudo pacman -Rssn $*"
+# f
+"pacman -Qql $1"
+# p
+"pacman -Qs $1"
+# s
+"pacman -Ss $*"
+# S
+"yaourt -Ss $*"
+# i
+"sudo pacman --needed -S $*"
+# I
+"yaourt -S $*"
+# u
+"sudo pacman -Su"
+# U
+"sudo pacman -Syu"
+# v
+"pacman -Qii $*"
+# V
+"pacman -Q"
+)
+
 ACTIONS_AMZN=(
 # d
-"yum remove $*"
+"sudo yum remove $*"
 # D
-"yum remove $*"
+"sudo yum autoremove $*"
 # f
 "rpm -q --list $*"
 # p
@@ -190,19 +246,47 @@ ACTIONS_AMZN=(
 # S
 "yum search $*"
 # i
-"yum install $*"
+"sudo yum install $*"
 # I
-"yum install $*"
+"sudo yum install $*"
 # u
-"yum update $*"
+"sudo yum update $*"
 # U
-"yum upgrade $*"
+"sudo yum upgrade $*"
 # v
 "yum info $*"
 # V
 "yum list installed"
 )
-
+ 
+ACTIONS_GENTOO=(
+# d
+"sudo emerge -cav $*"
+# D
+"sudo emerge -cav $* && sudo emerge -a --depclean"
+# f
+"equery files -t $* | grep 'file '"
+# p
+"equery list $*"
+# s
+"emerge -s $* | less -F -r"
+# S
+#"equery list -p $*"
+"emerge -S $*"
+# i
+"sudo emerge -a --autounmask-continue $*"
+# I
+"sudo emerge -a --autounmask-continue $*"
+# u
+"sudo emerge -uDU --keep-going --with-bdeps=y --backtrack=1000 --autounmask-continue --ask $*"
+# U
+"sudo emaint -a sync"
+# v
+"equery meta $* && equery uses $*"
+# V
+"qlist -IRv"
+)
+ 
 # Special behaviour update FreeBSD
 if [ "$1" = "" ]; then
     ACTIONS_FREEBSD[8]=${ACTIONS_FREEBSD[7]}"-a"
@@ -217,9 +301,10 @@ LEN3=${#ACTIONS_LEGEND[@]}
 LEN4=${#ACTIONS_UBUNTU[@]}
 LEN5=${#ACTIONS_FREEBSD[@]}
 LEN6=${#ACTIONS_AMZN[@]}
-if [ $LEN1 -ne $LEN2 -o $LEN1 -ne $LEN3 -o $LEN1 -ne $LEN4 -o $LEN1 -ne $LEN5 -o $LEN1 -ne $LEN6  ]; then
+LEN7=${#ACTIONS_GENTOO[@]}
+if [ $LEN1 -ne $LEN2 -o $LEN1 -ne $LEN3 -o $LEN1 -ne $LEN4 -o $LEN1 -ne $LEN5 -o $LEN1 -ne $LEN6 -o $LEN1 -ne $LEN7  ]; then
      echo $ERROR_BAD_PARAM_COUNT
-     echo -e "COMMANDS = $LEN1\nREQUIRED_PARAMETERS = $LEN2\nACTIONS_LEGEND = $LEN3\nACTIONS_UBUNTU = $LEN4\nACTIONS_FREEBSD = $LEN5\nACTIONS_AMZN = $LEN6"
+     echo -e "COMMANDS = $LEN1\nREQUIRED_PARAMETERS = $LEN2\nACTIONS_LEGEND = $LEN3\nACTIONS_UBUNTU = $LEN4\nACTIONS_FREEBSD = $LEN5\nACTIONS_AMZN = $LEN6\nACTIONS_GENTOO = $LEN7"
      exit
 fi
 
@@ -270,12 +355,12 @@ do
 done
 if [ "$CMD_I" = "" ]; then
     echo $ERROR_BAD_PARAM
-    echo -e $INFO_ACTIONS    
+    echo -e $INFO_ACTIONS
     exit
 fi
 if [ "${REQUIRED_PARAMETERS[CMD_I]}" = "2" -a "$1" = "" ]; then
     echo $ERROR_BAD_PARAM
-    echo -e $INFO_ACTIONS    
+    echo -e $INFO_ACTIONS
     exit
 fi
 
@@ -310,6 +395,16 @@ elif [ $MY_OS = "ARCH" ]; then
         fi
     done
     ACTION="${ACTIONS_ARCH[CMD_I]}"
+elif [ $MY_OS = "MANJARO" ]; then
+    LEN=${#REQUIRED_TOOLS_MANJARO[@]}
+    for (( i = 0; i<${LEN}; i++ ));
+    do
+        if ! which ${REQUIRED_TOOLS_MANJARO[i]} > /dev/null; then
+            echo "$ERROR_MISSING_TOOL ${REQUIRED_TOOLS_MANJARO[i]}";
+            exit
+        fi
+    done
+    ACTION="${ACTIONS_MANJARO[CMD_I]}"
 elif [ $MY_OS = "amzn" ]; then
     LEN=${#REQUIRED_TOOLS_AMZN[@]}
     for (( i = 0; i<${LEN}; i++ ));
@@ -320,7 +415,17 @@ elif [ $MY_OS = "amzn" ]; then
         fi
     done
     ACTION="${ACTIONS_AMZN[CMD_I]}"
-else 
+elif [ $MY_OS = "gentoo" ]; then
+    LEN=${#REQUIRED_TOOLS_GENTOO[@]}
+    for (( i = 0; i<${LEN}; i++ ));
+    do
+        if ! which ${REQUIRED_TOOLS_GENTOO[i]} > /dev/null; then
+            echo "$ERROR_MISSING_TOOL ${REQUIRED_TOOLS_GENTOO[i]}";
+            exit
+        fi
+    done
+    ACTION="${ACTIONS_GENTOO[CMD_I]}"
+else
     echo "$ERROR_BAD_OS (2)"
     exit
 fi
